@@ -17,7 +17,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         # Essential tools
         ca-certificates curl wget gnupg lsb-release sudo \
         # Development tools
-        git vim nano tmux htop tree direnv \
+        git vim neovim nano tmux htop tree direnv \
         # Build tools
         build-essential gcc g++ make cmake pkg-config \
         # Shell and utilities
@@ -64,6 +64,36 @@ RUN ARCH=$(dpkg --print-architecture) && \
     dpkg -i /tmp/glab.deb || apt-get install -f -y && \
     rm /tmp/glab.deb && \
     glab --version
+
+# Install LLVM 21
+RUN curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-archive-keyring.gpg && \
+    chmod 644 /usr/share/keyrings/llvm-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-21 main" \
+    > /etc/apt/sources.list.d/llvm.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        llvm-21 \
+        llvm-21-dev \
+        llvm-21-runtime \
+        clang-21 \
+        clang-tools-21 \
+        clang-format-21 \
+        clang-tidy-21 \
+        lld-21 \
+        libc++-21-dev \
+        libc++abi-21-dev && \
+    # Set LLVM 21 as default using update-alternatives
+    update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-21 210 && \
+    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-21 210 && \
+    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-21 210 && \
+    update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-21 210 && \
+    update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-21 210 && \
+    update-alternatives --install /usr/bin/lld lld /usr/bin/lld-21 210 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    # Verify installation
+    clang --version && \
+    llvm-config --version
 
 # Create non-root user
 ARG USER_ID=1000
@@ -118,6 +148,16 @@ RUN curl -s "https://get.sdkman.io?rcupdate=false" | bash && \
     bash -c "source $HOME/.sdkman/bin/sdkman-init.sh && \
         sdk install java 21.0.9-tem && \
         sdk install gradle"
+
+# Install Rust via rustup
+ENV RUSTUP_HOME="/home/${USERNAME}/.rustup"
+ENV CARGO_HOME="/home/${USERNAME}/.cargo"
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable && \
+    echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc && \
+    echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.zshrc && \
+    . "$CARGO_HOME/env" && \
+    rustup component add rustfmt clippy rust-analyzer && \
+    cargo install cargo-watch cargo-edit cargo-outdated cargo-audit
 
 # Setup Python tools
 RUN /home/${USERNAME}/.local/bin/uv tool install black && \
@@ -195,6 +235,9 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Set the user for runtime
 USER ${USERNAME}
+
+# Set neovim as editor
+ENV EDITOR=nvim
 
 # Using BUILD_TIMESTAMP as a build arg that changes on every invocation invalidates
 # Docker's cache for this layer and following layers, forcing reinstall even when
