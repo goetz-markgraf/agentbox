@@ -65,36 +65,6 @@ RUN ARCH=$(dpkg --print-architecture) && \
     rm /tmp/glab.deb && \
     glab --version
 
-# Install LLVM 21
-RUN curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-archive-keyring.gpg && \
-    chmod 644 /usr/share/keyrings/llvm-archive-keyring.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-21 main" \
-    > /etc/apt/sources.list.d/llvm.list && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-        llvm-21 \
-        llvm-21-dev \
-        llvm-21-runtime \
-        clang-21 \
-        clang-tools-21 \
-        clang-format-21 \
-        clang-tidy-21 \
-        lld-21 \
-        libc++-21-dev \
-        libc++abi-21-dev && \
-    # Set LLVM 21 as default using update-alternatives
-    update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-21 210 && \
-    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-21 210 && \
-    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-21 210 && \
-    update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-21 210 && \
-    update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-21 210 && \
-    update-alternatives --install /usr/bin/lld lld /usr/bin/lld-21 210 && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    # Verify installation
-    clang --version && \
-    llvm-config --version
-
 # Create non-root user
 ARG USER_ID=1000
 ARG GROUP_ID=1000
